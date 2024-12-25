@@ -1,0 +1,3 @@
+pyperclip
+requests  # if you use requests for HTTP requests
+numpy     # if you use numpy for any data processing, etc.
