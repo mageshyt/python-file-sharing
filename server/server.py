@@ -1,49 +1,38 @@
+import socket
 import threading
-
-from common.network import bind_socket, create_udp_socket  # Corrected the function name
+from server.event_broadcast import broadcast_event
+from common.network import create_udp_socket, bind_socket
 from server.config import HOST, PORT
 
+clients = []  # List to keep track of connected clients
 
-clients = []  # List of client addresses (IP, PORT)
+# Function to manage client connections and handle incoming messages
+def handle_client(client_socket, client_address):
+    clients.append(client_socket)  # Add client to the list when they connect
 
-def handle_client(server, client_address):
-    while True:
-        try:
-            # Receive message from client
-            message, addr = server.recvfrom(1024)
-            if message:
-                print(f"Received '{message.decode('utf-8')}' from {client_address}")
-
-                # Broadcast message to all clients
-                for client in clients:
-                    if client != client_address:  # Don't send the message back to the sender
-                        server.sendto(message, client)
-            else:
-                break  # If message is empty, close the connection
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            break
-
-    print(f"Connection from {client_address} closed")
+    try:
+        while True:
+            data, addr = client_socket.recvfrom(1024)
+            message = data.decode("utf-8")
+            print(f"Received clipboard content from {addr}: {message}")
+            # Broadcast the message (clipboard content) to all other clients
+            broadcast_event(message, clients)  # Pass the clients list to the broadcast function
+    except Exception as e:
+        print(f"Error handling client {client_address}: {e}")
+    finally:
+        # Remove client from the list when disconnected
+        clients.remove(client_socket)
+        print(f"Connection closed: {client_address}")
 
 def start_server():
     try:
-        server = create_udp_socket()  # Use UDP socket
-        bind_socket(server, HOST, PORT)  # Bind to the host and port
-        print(f"Server is listening on {HOST}:{PORT}")
+        server_socket = create_udp_socket()
+        bind_socket(server_socket, HOST, PORT)
+        print(f"Server listening on {HOST}:{PORT}")
 
         while True:
-            message, client_address = server.recvfrom(1024)  # Receive message from any client
-            if client_address not in clients:  # Only add the client once
-                clients.append(client_address)  # Add the client address to the clients list
-                print(f"New client connected: {client_address}")
-            
-            # Start a new thread to handle the client
-            threading.Thread(target=handle_client, args=(server, client_address)).start()
-
+            data, client_address = server_socket.recvfrom(1024)  # Receive initial connection request
+            print(f"New connection from {client_address}")
+            threading.Thread(target=handle_client, args=(server_socket, client_address)).start()
     except Exception as e:
         print(f"An error occurred: {e}")
-
-if __name__ == "__main__":
-    start_server()
-
