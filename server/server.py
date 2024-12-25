@@ -1,3 +1,4 @@
+
 import socket
 import threading
 from server.event_broadcast import broadcast_event
@@ -8,20 +9,22 @@ clients = []  # List to keep track of connected clients
 
 # Function to manage client connections and handle incoming messages
 def handle_client(client_socket, client_address):
-    clients.append(client_socket)  # Add client to the list when they connect
+    # Store the client address for broadcasting later
+    clients.append(client_address)  
 
     try:
         while True:
-            data, addr = client_socket.recvfrom(1024)
+            data, addr = client_socket.recvfrom(1024)  # Receive message from client
             message = data.decode("utf-8")
             print(f"Received clipboard content from {addr}: {message}")
             # Broadcast the message (clipboard content) to all other clients
-            broadcast_event(message, clients)  # Pass the clients list to the broadcast function
+            broadcast_event(message, clients, client_socket)  # Pass the clients list to the broadcast function
     except Exception as e:
         print(f"Error handling client {client_address}: {e}")
     finally:
         # Remove client from the list when disconnected
-        clients.remove(client_socket)
+        if client_address in clients:
+            clients.remove(client_address)
         print(f"Connection closed: {client_address}")
 
 def start_server():
